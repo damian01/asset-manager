@@ -1,0 +1,29 @@
+{
+  "name": "it-asset-manager-standalone",
+  "version": "1.0.0",
+  "private": false,
+  "bin": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "pkg": "pkg . --targets node18-win-x64,node18-macos-x64,node18-macos-arm64,node18-linux-x64 --output dist/it-asset-manager"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "pdfkit": "^0.13.0",
+    "sql.js": "^1.10.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "public/**/*",
+      "db/*",
+      "node_modules/sql.js/dist/sql-wasm.wasm"
+    ]
+  }
+}
