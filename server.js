@@ -1,3 +1,13 @@
+const path = require('path');
+const baseDir = __dirname; // use script directory for portable bundle
+// Replace any previous uses of process.cwd() with baseDir:
+const DB_DIR = path.join(baseDir, 'db');
+
+// Static assets:
+app.use('/public', express.static(path.join(baseDir, 'public')));
+
+// sql.js wasm path:
+const wasmBinaryFile = require.resolve('sql.js/dist/sql-wasm.wasm');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
