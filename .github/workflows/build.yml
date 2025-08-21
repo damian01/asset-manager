@@ -5,29 +5,61 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: windows-latest
-            target: node18-win-x64
-            out: it-asset-manager.exe
-          - os: macos-latest
-            target: node18-macos-arm64
-            out: it-asset-manager-macos
-          - os: ubuntu-latest
-            target: node18-linux-x64
-            out: it-asset-manager-linux
+  # ✅ Windows portable ZIP (no installs required on the target machine)
+  windows-portable:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      # use npm install since there's no lockfile
-      - run: npm install
-      - run: npx pkg . --targets ${{ matrix.target }} --output dist/${{ matrix.out }}
+
+      # Install production deps into ./app/node_modules
+      - name: Install production deps
+        run: |
+          npm install --omit=dev
+          mkdir app
+          copy package.json app\package.json
+          copy server.js app\server.js
+          xcopy public app\public /E /I /Y
+          if not exist app\db mkdir app\db
+          copy README.md app\README.md
+          # ensure sql.js wasm file is present in node_modules when we copy it below
+
+      # Copy node_modules now that they're installed
+      - name: Copy node_modules
+        run: |
+          xcopy node_modules app\node_modules /E /I /Y
+
+      # Download portable Node runtime
+      - name: Download portable Node runtime
+        shell: pwsh
+        run: |
+          $Version = "v20.11.1"
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/$Version/node-$Version-win-x64.zip" -OutFile node.zip
+          Expand-Archive -Path node.zip -DestinationPath dist
+          Rename-Item -Path "dist\node-$Version-win-x64" -NewName "node"
+
+      # Create start script
+      - name: Create start.bat
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist\bundle | Out-Null
+          '@echo off' | Out-File dist\bundle\start.bat -Encoding ASCII
+          'setlocal' | Out-File dist\bundle\start.bat -Append -Encoding ASCII
+          'cd /d %~dp0' | Out-File dist\bundle\start.bat -Append -Encoding ASCII
+          'start "" "%cd%\node\node.exe" "%cd%\app\server.js"' | Out-File dist\bundle\start.bat -Append -Encoding ASCII
+
+      # Move app + node into bundle
+      - name: Assemble bundle
+        shell: pwsh
+        run: |
+          Move-Item app dist\bundle\app
+          Move-Item dist\node dist\bundle\node
+
+      # Upload as artifact
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.out }}
-          path: dist/${{ matrix.out }}
+          name: it-asset-manager-windows-portable
+          path: dist/bundle/**
